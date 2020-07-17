@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Mervin Checkpoint 3 CloudFormation
+
+Parameters:
+
+  Omanimi:
+    Type: String
+    Default: Mervi
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+Resources:
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for EC2
+      GroupName: mervi-cp3-ec2-security-group
+      SecurityGroupIngress:
+        - FromPort: 22
+          IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          ToPort: 22
+        - FromPort: 80
+          IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          ToPort: 80
+
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+     ImageId: !Ref LatestAmiId
+     InstanceType: t2.nano
+     UserData:
+       Fn::Base64:
+         !Sub |
+          #!/bin/bash
+          sudo su
+          yum update -y
+          yum install -y httpd.x86_64
+          systemctl start httpd.service
+          systemctl enable httpd.service
+          echo "Heips Samuliini from $(hostname -f)" > /var/www/html/index.html
+
+     SecurityGroups:
+      - !Ref InstanceSecurityGroup
+     Tags:
+       - Key: Owner
+         Value: !Ref Omanimi
+
+
+  Buketti:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: mervin-cp3-buketti
+      Tags:
+        - Key: Owner
+          Value: !Ref Omanimi
+
+  MerviSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Type: String
+      Value:
+        Fn::GetAtt: [ Buketti, Arn ]
+
+Outputs:
+  PublicDnsName:
+    Description: The DNSName of the Ec2Instance
+    Value:
+      Fn::GetAtt: [ Ec2Instance, PublicDnsName ]
